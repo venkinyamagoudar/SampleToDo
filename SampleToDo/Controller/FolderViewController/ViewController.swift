@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import CoreData
 
 class ViewController: UIViewController {
 
@@ -25,7 +26,9 @@ class ViewController: UIViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        viewModel.folderArray = viewModel.coreDataManager.fetchRequest(ofType: ToDoFolder.self)
+//        viewModel.folderArray = viewModel.coreDataManager.fetchRequest(ofType: ToDoFolder.self)
+        viewModel.fetchedResultController?.delegate = self
+        viewModel.performFetch()
         tableView.reloadData()
         
     }
@@ -73,17 +76,20 @@ class ViewController: UIViewController {
 extension ViewController: UITableViewDelegate, UITableViewDataSource {
    
     func numberOfSections(in tableView: UITableView) -> Int {
-        return 1
+        return viewModel.fetchedResultController?.sections?.count ?? 1
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return viewModel.folderArray.count
+        //return viewModel.folderArray.count
+        return viewModel.fetchedResultController?.sections?[section].numberOfObjects ?? 0
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: ToDoListTableViewCell.identifier, for: indexPath) as! ToDoListTableViewCell
-        let object = viewModel.getObject(at: indexPath)
-        cell.configure(with: object.title!)
+//        let object = viewModel.getObject(at: indexPath)
+        if let object = viewModel.fetchedResultController?.object(at: indexPath) {
+            cell.configure(with: object.title!)
+        }
         return cell
     }
     
@@ -131,15 +137,71 @@ extension ViewController {
         if segue.identifier == "ViewToListController",
         let selectedIndex = tableView.indexPathForSelectedRow  {
             let destination = segue.destination as! ListViewController
-            let object = viewModel.getObject(at: selectedIndex)
-            destination.viewModel =
-            ListViewControllerViewModel(
-                folder: object,
-                coreDataManager: viewModel.coreDataManager)
+            if let object = viewModel.fetchedResultController?.object(at: selectedIndex) {
+                destination.viewModel =
+                ListViewControllerViewModel(
+                    folder: object,
+                    coreDataManager: viewModel.coreDataManager)
+            }
+        }
+    }
+}
+
+//MARK: NSFetchedResultControllerDelegate Functions
+
+extension ViewController: NSFetchedResultsControllerDelegate {
+    
+    func controllerWillChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
+        tableView.beginUpdates()
+    }
+    
+    func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
+        tableView.endUpdates()
+    }
+    
+    func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
+        switch type {
+        case .update:
+            if let indexPath = indexPath {
+                tableView.reloadRows(at: [indexPath], with: .fade)
+                tableView.reloadData()
+            }
+        case .move:
+            if let indexPath = indexPath {
+                tableView.moveRow(at: indexPath, to: newIndexPath!)
+                tableView.reloadData()
+            }
+        case .delete:
+            if let indexPath = indexPath {
+                tableView.deleteRows(at: [indexPath], with: .fade)
+                tableView.reloadData()
+            }
+        case .insert:
+            if let indexPath = newIndexPath {
+                tableView.insertRows(at: [indexPath], with: .none)
+                tableView.reloadData()
+            }
+        default:
+            tableView.reloadData()
         }
     }
     
-    
-    
+    func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange sectionInfo: NSFetchedResultsSectionInfo, atSectionIndex sectionIndex: Int, for type: NSFetchedResultsChangeType) {
+        let indexSet = IndexSet(integer: sectionIndex)
+        switch type {
+        case .insert:
+            tableView.insertSections(indexSet, with: .fade)
+        case .delete:
+            tableView.deleteSections(indexSet, with: .fade)
+        case .move:
+            print("Not written yet")
+            break
+        case .update:
+            print("Not written yet")
+            break
+        @unknown default:
+            tableView.reloadData()
+            fatalError()
+        }
+    }
 }
-

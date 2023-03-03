@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import CoreData
 
 class ListViewController: UIViewController {
     
@@ -21,7 +22,10 @@ class ListViewController: UIViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        viewModel.lists = viewModel.coreDataManager.fetchRequestUsingPredicate(ofType: List.self, for: viewModel.folder)
+//        viewModel.lists = viewModel.coreDataManager.fetchRequestUsingPredicate(ofType: List.self, for: viewModel.folder)
+        viewModel.fetchedResultController.delegate = self
+        viewModel.performFetch()
+        tableView.reloadData()
     }
     
     fileprivate func setUpTableView() {
@@ -42,16 +46,16 @@ class ListViewController: UIViewController {
 
 extension ListViewController: UITableViewDelegate, UITableViewDataSource {
     func numberOfSections(in tableView: UITableView) -> Int {
-        return 1
+        return viewModel.fetchedResultController.sections?.count ?? 1
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return viewModel.lists.count
+        return viewModel.fetchedResultController.sections?[section].numberOfObjects ?? 0
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: ToDoDetailsTableViewCell.identifier, for: indexPath) as! ToDoDetailsTableViewCell
-        let list = viewModel.getObject(at: indexPath)
+        let list = viewModel.fetchedResultController.object(at: indexPath)
         cell.configure(with: list)
         cell.textView.delegate = self
         cell.textView.tag = indexPath.row
@@ -67,8 +71,9 @@ extension ListViewController: UITextViewDelegate {
     
     func textViewDidEndEditing(_ textView: UITextView) {
         if textView.text != "" {
-            let list = viewModel.getObject(at: activeTextView.tag)
-            list.text = activeTextView.text
+            let indexPath = NSIndexPath(row: textView.tag, section: 0) as IndexPath
+            let list = viewModel.fetchedResultController.object(at: indexPath)
+            list.text = textView.text
         }
         viewModel.coreDataManager.save()
     }
@@ -97,7 +102,9 @@ extension ListViewController: UITextViewDelegate {
                 let isBackSpace = strcmp(char, "\\b")
                 if (isBackSpace == -92) {
                     print("Backspace was pressed")
-                    self.viewModel.deleteList(at: textView.tag)
+                    if let indexPath = tableView.indexPathForSelectedRow {
+                        self.viewModel.deleteList(at: indexPath)
+                    }
                     textView.resignFirstResponder()
                     tableView.reloadData()
                     return false
@@ -109,5 +116,60 @@ extension ListViewController: UITextViewDelegate {
             return false
         }
         return true
+    }
+}
+
+
+extension ListViewController: NSFetchedResultsControllerDelegate {
+    
+    func controllerWillChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
+        tableView.beginUpdates()
+    }
+    
+    func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
+        tableView.endUpdates()
+    }
+    
+    func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
+        switch type {
+        case .insert:
+            if let indexPath = newIndexPath {
+                tableView.insertRows(at: [indexPath], with: .fade)
+            }
+        case .delete:
+            if let indexPath = indexPath {
+                tableView.deleteRows(at: [indexPath], with: .fade)
+            }
+        case .move:
+            if let indexPath = indexPath, let newIndexPath = newIndexPath {
+                tableView.moveRow(at: indexPath, to: newIndexPath)
+                viewModel.coreDataManager.save()
+            }
+        case .update:
+            if let indexPath = indexPath {
+                tableView.reloadRows(at: [indexPath], with: .fade)
+            }
+        default:
+            tableView.reloadData()
+        }
+    }
+    
+    func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange sectionInfo: NSFetchedResultsSectionInfo, atSectionIndex sectionIndex: Int, for type: NSFetchedResultsChangeType) {
+        let indexSet = IndexSet(integer: sectionIndex)
+        switch type {
+        case .insert:
+            tableView.insertSections(indexSet, with: .fade)
+        case .delete:
+            tableView.deleteSections(indexSet, with: .fade)
+        case .move:
+            print("Not written yet")
+            break
+        case .update:
+            print("Not written yet")
+            break
+        @unknown default:
+            tableView.reloadData()
+            fatalError()
+        }
     }
 }

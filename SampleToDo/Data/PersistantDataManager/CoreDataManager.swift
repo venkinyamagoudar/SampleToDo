@@ -67,3 +67,41 @@ class CoreDataManager {
         return try! viewContext.fetch(fetchrequest)
     }
 }
+
+
+//class FetchedResultsControllerManager<T: NSManagedObject> {
+//    
+//    var fetchedResultscontroller: NSFetchedResultsController<NSFetchRequestResult>?
+//    var viewContext:
+//    
+//    init(keys: [String]) {
+//        self.fetchedResultscontroller = setUpFetchedResultController(with: keys)
+//        performFetch()
+//    }
+//    
+//    func setUpFetchedResultController (with keys: [String], and predicate: NSPredicate? = nil) -> NSFetchedResultsController<NSFetchRequestResult>{
+//        guard let request = T.fetchRequest() as? NSFetchRequest<T> else {
+//            fatalError("Can't set up NSFetchRequest")
+//        }
+//        request.sortDescriptors = getSortDescriptor(for: keys)
+//        request.predicate = predicate
+//        return NSFetchedResultsController<T>(fetchRequest: request, managedObjectContext: , sectionNameKeyPath: nil, cacheName: nil)
+//    }
+//    
+//    func performFetch() {
+//        do {
+//            try self.fetchedResultscontroller?.performFetch()
+//        } catch let error {
+//            fatalError("Error while initialising FetchedController. Error: \(error)")
+//        }
+//    }
+//    
+//    fileprivate func getSortDescriptor(for keys: [String]) -> [NSSortDescriptor] {
+//        var sort = [NSSortDescriptor]()
+//        for key in keys {
+//            let tempSort = NSSortDescriptor(key: key, ascending: true)
+//            sort.append(tempSort)
+//        }
+//        return sort
+//    }
+//}
